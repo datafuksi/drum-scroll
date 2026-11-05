@@ -1,0 +1,409 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Drum Scroll">
+<title>Drum Scroll</title>
+<style>
+:root{
+  --bg:#15161a; --panel:#1f2128; --panel2:#2a2d36; --text:#eceef3; --muted:#9aa0ae;
+  --accent:#ff7a1a; --accent-ink:#1a0d00; --paper:#fafafa;
+  --line:rgba(255,122,26,.9); --read:30%;
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;height:100%;background:var(--bg);color:var(--text);
+  font:16px/1.35 -apple-system,BlinkMacSystemFont,"SF Pro Text",system-ui,sans-serif;overscroll-behavior:none}
+body{display:flex;flex-direction:column;height:100dvh;overflow:hidden;user-select:none;-webkit-user-select:none}
+button{font:inherit;color:inherit;background:var(--panel2);border:0;border-radius:12px;padding:10px 14px;touch-action:manipulation}
+button:active{filter:brightness(1.25)}
+button.on{background:var(--accent);color:var(--accent-ink);font-weight:600}
+
+header{display:flex;align-items:center;gap:10px;padding:max(8px,env(safe-area-inset-top)) max(14px,env(safe-area-inset-left)) 8px;background:var(--panel)}
+header h1{flex:1;margin:0;font-size:17px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+header h1 small{display:block;font-weight:400;color:var(--muted);font-size:12px}
+#clock{font-variant-numeric:tabular-nums;color:var(--muted);font-size:14px}
+
+#view{position:relative;flex:1;overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch;background:#0e0f12}
+#stage{position:relative;margin:0 auto;max-width:1500px}
+.pad{height:calc(var(--viewH,600px)*0.3)}
+.padb{height:calc(var(--viewH,600px)*0.8)}
+.strip{position:relative;margin:0 0 14px;background:var(--paper);border-radius:6px;overflow:hidden;opacity:1;transition:opacity .25s}
+.strip.past{opacity:.4}
+.strip.cur{box-shadow:0 0 0 3px var(--accent)}
+.strip img{display:block;width:100%;height:auto}
+.cursor{position:absolute;top:0;bottom:0;width:4px;margin-left:-2px;background:var(--accent);opacity:.75;border-radius:2px;pointer-events:none;display:none}
+.cursor.show{display:block}
+#readline{position:absolute;left:0;right:0;top:var(--read);height:0;border-top:2px dashed var(--line);pointer-events:none;z-index:3;opacity:.0;transition:opacity .3s}
+#readline.show{opacity:.55}
+#view-wrap{position:relative;flex:1;min-height:0;display:flex;flex-direction:column}
+#follow{position:absolute;top:10px;left:50%;transform:translateX(-50%);z-index:6;display:none;background:var(--accent);color:var(--accent-ink);font-weight:700;box-shadow:0 4px 16px #0008}
+#follow.show{display:block}
+#count{position:absolute;inset:0;z-index:7;display:none;align-items:center;justify-content:center;font-size:30vmin;font-weight:800;color:var(--accent);background:#000a;pointer-events:none}
+#count.show{display:flex}
+#toast{position:absolute;left:50%;bottom:16px;transform:translateX(-50%);z-index:8;background:#000d;padding:10px 16px;border-radius:12px;max-width:80%;text-align:center;display:none;font-size:14px}
+
+#ytbox{position:absolute;right:max(10px,env(safe-area-inset-right));bottom:10px;z-index:5;width:220px;border-radius:10px;overflow:hidden;background:#000;box-shadow:0 6px 24px #000a}
+#ytbox.min{width:2px;height:2px;opacity:.01;pointer-events:none;right:0;bottom:0}
+#ytbox .ratio{position:relative;padding-top:56.25%}
+#ytbox iframe,#ytbox #yt{position:absolute;inset:0;width:100%;height:100%;border:0}
+#ytbox.off{display:none}
+
+footer{background:var(--panel);padding:8px max(14px,env(safe-area-inset-left)) max(10px,env(safe-area-inset-bottom));display:flex;align-items:center;gap:10px}
+#play{width:84px;height:56px;border-radius:28px;background:var(--accent);color:var(--accent-ink);font-size:26px;font-weight:700;padding:0}
+#seek{flex:1;min-width:60px;accent-color:var(--accent);height:34px}
+.sq{width:48px;height:48px;padding:0;font-size:20px}
+
+.sheet{position:fixed;inset:0;z-index:20;background:#000a;display:none}
+.sheet.show{display:block}
+.sheet .box{position:absolute;background:var(--panel);padding:16px;overflow:auto;max-height:100%}
+#songs .box{left:0;top:0;bottom:0;width:min(420px,92vw);padding-top:max(16px,env(safe-area-inset-top))}
+#settings .box{right:0;top:0;bottom:0;width:min(420px,92vw);padding-top:max(16px,env(safe-area-inset-top))}
+.sheet h2{margin:4px 0 12px;font-size:15px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.06em}
+.song{display:block;width:100%;text-align:left;margin-bottom:8px;padding:12px 14px;background:var(--panel2)}
+.song b{display:block}.song span{color:var(--muted);font-size:13px}
+.song.cur{outline:2px solid var(--accent)}
+.row{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:14px}
+.row label{flex:1 0 100%;color:var(--muted);font-size:13px}
+.row button{flex:1;min-width:64px}
+.hint{color:var(--muted);font-size:13px;margin:0 0 14px}
+#offv{font-variant-numeric:tabular-nums;min-width:70px;text-align:center}
+</style>
+</head>
+<body>
+<header>
+  <button id="bSongs" aria-label="Songs">☰ Songs</button>
+  <h1 id="title">Drum Scroll</h1>
+  <span id="clock">0:00 / 0:00</span>
+  <button id="bSet" aria-label="Settings">⚙</button>
+</header>
+
+<div id="view-wrap">
+  <div id="view">
+    <div class="pad"></div>
+    <div id="stage"></div>
+    <div class="padb"></div>
+  </div>
+  <div id="readline"></div>
+  <button id="follow">⤓ Follow song</button>
+  <div id="count"></div>
+  <div id="toast"></div>
+  <div id="ytbox"><div class="ratio"><div id="yt"></div></div></div>
+</div>
+
+<footer>
+  <button class="sq" id="bRestart" aria-label="Restart">⟲</button>
+  <button id="play" aria-label="Play">▶</button>
+  <input id="seek" type="range" min="0" max="100" step="0.1" value="0">
+  <button class="sq" id="bVid" aria-label="Toggle video">🎬</button>
+</footer>
+
+<div class="sheet" id="songs"><div class="box" id="songList"></div></div>
+
+<div class="sheet" id="settings"><div class="box">
+  <h2>Playback</h2>
+  <div class="row"><label>Scroll follows</label>
+    <button id="mVideo">YouTube video</button><button id="mTimer">Timer only</button></div>
+  <p class="hint">Video: scrolling follows the embedded video (pause, seek and slow-down all work). Timer: scrolls on its own clock after a countdown, for when the song plays from somewhere else.</p>
+  <div class="row"><label>Speed</label>
+    <button data-sp="0.5">0.5×</button><button data-sp="0.75">0.75×</button><button data-sp="1">1×</button><button data-sp="1.25">1.25×</button></div>
+  <h2>Sync (this song)</h2>
+  <div class="row"><label>Notation too early/late? Shift it:</label>
+    <button data-off="-1">−1s</button><button data-off="-0.1">−0.1</button><span id="offv">0.0s</span><button data-off="0.1">+0.1</button><button data-off="1">+1s</button></div>
+  <p class="hint" id="songNote"></p>
+  <h2>Display</h2>
+  <div class="row"><label>Reading line (where the current strip sits)</label>
+    <button data-read="20">High</button><button data-read="30">Mid</button><button data-read="42">Low</button></div>
+  <div class="row"><label>Position cursor inside strip</label>
+    <button id="curOn">On</button><button id="curOff">Off</button></div>
+  <div class="row"><label>Timer countdown</label>
+    <button data-cd="0">None</button><button data-cd="3">3 s</button><button data-cd="5">5 s</button></div>
+  <h2>Tips</h2>
+  <p class="hint">Double-tap a strip to jump there. Dragging the page pauses the auto-follow until you tap “Follow song”. Space bar = play/pause on a Bluetooth keyboard.</p>
+  <button id="bClose" style="width:100%">Done</button>
+</div></div>
+
+<script src="songs.js"></script>
+<script>
+(() => {
+'use strict';
+const $ = s => document.querySelector(s);
+const store = {
+  get(k, d){ try{ const v = localStorage.getItem('ds.'+k); return v===null? d : JSON.parse(v);}catch(e){return d;} },
+  set(k, v){ try{ localStorage.setItem('ds.'+k, JSON.stringify(v)); }catch(e){} }
+};
+const S = {
+  song:null, idx:0, mode: store.get('mode','video'), rate: store.get('rate',1),
+  readPct: store.get('read',30), cursor: store.get('cursor',true), cd: store.get('cd',3),
+  vidMin: store.get('vidmin',false),
+  playing:false, t:0, manual:false, tAnch:[], yAnch:[], els:[], curI:-1,
+  // timer clock
+  clkBase:0, clkWall:0, counting:false,
+  // yt
+  yt:null, ytReady:false, ytState:-1, ytLast:-1, ytWall:0, ytTried:false, wake:null
+};
+const view=$('#view'), stage=$('#stage');
+const fmt = t => { t=Math.max(0,t); const m=Math.floor(t/60), s=Math.floor(t%60); return m+':'+String(s).padStart(2,'0'); };
+function toast(msg, ms=3500){ const e=$('#toast'); e.textContent=msg; e.style.display='block'; clearTimeout(toast.h); toast.h=setTimeout(()=>e.style.display='none',ms); }
+
+/* ---------- song loading / layout ---------- */
+const offKey = () => 'off.'+S.song.id;
+const getOff = () => store.get(offKey(),0);
+
+function loadSong(i){
+  if(S.playing) pause();
+  S.idx=i; S.song=SONGS[i]; store.set('song',S.song.id);
+  $('#title').innerHTML = S.song.title + '<small>'+(S.song.artist||'')+'</small>';
+  stage.innerHTML=''; S.els=[]; S.curI=-1;
+  S.song.strips.forEach((st,k)=>{
+    const d=document.createElement('div'); d.className='strip';
+    d.style.aspectRatio = st.w+'/'+st.h;
+    const im=new Image(); im.src=st.src; im.alt=''; im.decoding='async'; im.draggable=false;
+    const c=document.createElement('div'); c.className='cursor';
+    d.append(im,c); d.dataset.k=k; stage.append(d); S.els.push({d,c});
+  });
+  S.t = Math.max(0, S.song.strips[0].t-3);
+  $('#songNote').textContent = S.song.note||'';
+  $('#offv').textContent = getOff().toFixed(1)+'s';
+  view.scrollTop=0; S.manual=false; $('#follow').classList.remove('show');
+  requestAnimationFrame(()=>{ layout(); render(true); });
+  loadVideo();
+  markSongs(); updateUI();
+}
+
+function anchors(){
+  const off=getOff(), st=S.song.strips;
+  S.tAnch = st.map(s=>s.t+off);
+  for(let i=1;i<S.tAnch.length;i++) if(S.tAnch[i]<=S.tAnch[i-1]) S.tAnch[i]=S.tAnch[i-1]+0.01;
+}
+function layout(){
+  const vh=view.clientHeight; document.documentElement.style.setProperty('--viewH', vh+'px');
+  document.documentElement.style.setProperty('--read', S.readPct+'%');
+  document.querySelector('.pad').style.height = (vh*S.readPct/100)+'px';
+  anchors();
+  const base = stage.offsetTop;
+  S.yAnch = S.els.map(e=>base+e.d.offsetTop-vh*S.readPct/100);
+  const last=S.els[S.els.length-1].d;
+  const endY = base+last.offsetTop+last.offsetHeight-vh*S.readPct/100;
+  S.tAnch.push(Math.max(S.song.end+getOff(), S.tAnch[S.tAnch.length-1]+1)); S.yAnch.push(endY);
+  buildSpline();
+  $('#seek').max=S.tAnch[S.tAnch.length-1];
+}
+// monotone cubic (Fritsch-Carlson) so the scroll never jitters backwards or overshoots
+let M=[];
+function buildSpline(){
+  const x=S.tAnch, y=S.yAnch, n=x.length, d=[], m=new Array(n).fill(0);
+  for(let i=0;i<n-1;i++) d[i]=(y[i+1]-y[i])/(x[i+1]-x[i]);
+  m[0]=d[0]; m[n-1]=d[n-2];
+  for(let i=1;i<n-1;i++) m[i]=(d[i-1]*d[i]<=0)?0:(d[i-1]+d[i])/2;
+  for(let i=0;i<n-1;i++){
+    if(d[i]===0){m[i]=m[i+1]=0;continue}
+    const a=m[i]/d[i], b=m[i+1]/d[i], s=a*a+b*b;
+    if(s>9){const k=3/Math.sqrt(s); m[i]=k*a*d[i]; m[i+1]=k*b*d[i];}
+  }
+  M=m;
+}
+function yAt(t){
+  const x=S.tAnch, y=S.yAnch, n=x.length;
+  if(t<=x[0]) return y[0]; if(t>=x[n-1]) return y[n-1];
+  let lo=0,hi=n-1; while(hi-lo>1){const mid=(lo+hi)>>1; if(x[mid]<=t) lo=mid; else hi=mid;}
+  const h=x[hi]-x[lo], u=(t-x[lo])/h, u2=u*u, u3=u2*u;
+  return (2*u3-3*u2+1)*y[lo]+(u3-2*u2+u)*h*M[lo]+(-2*u3+3*u2)*y[hi]+(u3-u2)*h*M[hi];
+}
+function stripAt(t){ // index of the strip being played at time t, -1 before the first
+  const n=S.song.strips.length; let k=-1;
+  for(let i=0;i<n;i++){ if(S.tAnch[i]<=t) k=i; else break; }
+  return k;
+}
+
+/* ---------- render ---------- */
+let lastY=-1;
+function render(force){
+  if(!S.song) return;
+  const t=S.t, k=stripAt(t);
+  if(k!==S.curI || force){
+    S.els.forEach((e,i)=>{ e.d.classList.toggle('cur',i===k); e.d.classList.toggle('past',i<k); });
+    S.curI=k;
+  }
+  // cursor
+  S.els.forEach((e,i)=>{ if(i!==k && e.c.classList.contains('show')) e.c.classList.remove('show'); });
+  if(S.cursor && k>=0){
+    const st=S.song.strips[k], off=getOff(), e=S.els[k].c;
+    let x0=0.075,x1=0.985,a=S.tAnch[k],b=(k+1<S.song.strips.length?S.tAnch[k+1]:S.song.end+off);
+    if(st.segs){
+      for(const sg of st.segs){ if(t>=sg[2]+off && t<sg[3]+off){x0=sg[0];x1=sg[1];a=sg[2]+off;b=sg[3]+off;break;} }
+    }
+    const u=Math.min(1,Math.max(0,(t-a)/(b-a)));
+    e.style.left=((x0+(x1-x0)*u)*100)+'%'; e.classList.toggle('show', t>=a && t<=b);
+  }
+  if(!S.manual){
+    const y=yAt(t);
+    if(force || Math.abs(y-lastY)>0.2){ programmatic=true; view.scrollTop=y; lastY=y; }
+  }
+  $('#clock').textContent=fmt(t)+' / '+fmt(S.tAnch.length?S.tAnch[S.tAnch.length-1]:0);
+  if(!seeking) $('#seek').value=t;
+}
+
+/* ---------- time source ---------- */
+function videoMode(){ return S.mode==='video' && S.ytReady; }
+function now(){
+  if(videoMode()){
+    let t=S.yt.getCurrentTime();
+    const w=performance.now();
+    if(t!==S.ytLast){ S.ytLast=t; S.ytWall=w; }
+    if(S.ytState===1) t=Math.min(t+(w-S.ytWall)/1000*S.rate, t+0.25);
+    return t;
+  }
+  if(S.playing && !S.counting) return S.clkBase+(performance.now()-S.clkWall)/1000*S.rate;
+  return S.t;
+}
+let lastRaf=0;
+setInterval(()=>{ if(performance.now()-lastRaf>200) step(); },100); // backup when rAF is throttled
+function tick(){ lastRaf=performance.now(); step(); requestAnimationFrame(tick); }
+function step(){
+  if(S.playing || videoMode()){
+    const t=now();
+    if(videoMode()){
+      const ytPlaying = S.ytState===1;
+      if(ytPlaying!==S.playing){ S.playing=ytPlaying; updateUI(); ytPlaying?holdAwake():releaseAwake(); }
+    }
+    if(t!==S.t){ S.t=t; render(); }
+    if(!videoMode() && S.playing && !S.counting && S.t>=S.tAnch[S.tAnch.length-1]){ pause(); }
+  }
+}
+
+/* ---------- transport ---------- */
+function play(){
+  if(S.mode==='video' && !S.ytReady){ toast('Video not ready — using timer mode this time.'); }
+  if(videoMode()){
+    S.manual=false; $('#follow').classList.remove('show'); lastY=-1;
+    S.yt.setPlaybackRate(S.rate); S.yt.playVideo();
+    // iOS sometimes needs the tap on the video itself
+    clearTimeout(play.h); play.h=setTimeout(()=>{ if(S.ytState!==1) toast('Tap ▶ on the small video once (iPad needs a direct tap), then the notes will follow.',6000); },1500);
+    return;
+  }
+  S.manual=false; $('#follow').classList.remove('show'); lastY=-1;
+  const go=()=>{ S.counting=false; $('#count').classList.remove('show'); S.clkBase=S.t; S.clkWall=performance.now(); S.playing=true; holdAwake(); updateUI(); };
+  S.playing=true; updateUI();
+  if(S.cd>0){
+    S.counting=true; let n=S.cd; const c=$('#count'); c.textContent=n; c.classList.add('show');
+    const iv=setInterval(()=>{ n--; if(!S.counting){clearInterval(iv);return;} if(n<=0){clearInterval(iv);go();} else c.textContent=n; },1000);
+  } else go();
+}
+function pause(){
+  if(videoMode()) { try{S.yt.pauseVideo();}catch(e){} }
+  S.playing=false; S.counting=false; $('#count').classList.remove('show'); releaseAwake(); updateUI();
+}
+function toggle(){ (S.playing||S.counting)?pause():play(); }
+function seekTo(t){
+  t=Math.max(0,t); S.t=t;
+  if(videoMode()){ S.yt.seekTo(t,true); S.ytLast=t; S.ytWall=performance.now(); }
+  S.clkBase=t; S.clkWall=performance.now();
+  S.manual=false; $('#follow').classList.remove('show'); lastY=-1; render(true);
+}
+function updateUI(){
+  $('#play').textContent=(S.playing||S.counting)?'❚❚':'▶';
+  document.querySelectorAll('[data-sp]').forEach(b=>b.classList.toggle('on',+b.dataset.sp===S.rate));
+  document.querySelectorAll('[data-read]').forEach(b=>b.classList.toggle('on',+b.dataset.read===S.readPct));
+  document.querySelectorAll('[data-cd]').forEach(b=>b.classList.toggle('on',+b.dataset.cd===S.cd));
+  $('#mVideo').classList.toggle('on',S.mode==='video'); $('#mTimer').classList.toggle('on',S.mode==='timer');
+  $('#curOn').classList.toggle('on',S.cursor); $('#curOff').classList.toggle('on',!S.cursor);
+  $('#readline').classList.toggle('show',true);
+  $('#ytbox').classList.toggle('off',S.mode!=='video');
+  $('#ytbox').classList.toggle('min',S.vidMin);
+  $('#bVid').classList.toggle('on',!S.vidMin && S.mode==='video');
+}
+
+/* ---------- screen wake lock ---------- */
+async function holdAwake(){ try{ if('wakeLock' in navigator && !S.wake){ S.wake=await navigator.wakeLock.request('screen'); S.wake.addEventListener('release',()=>S.wake=null);} }catch(e){} }
+function releaseAwake(){ try{ S.wake&&S.wake.release(); }catch(e){} S.wake=null; }
+document.addEventListener('visibilitychange',()=>{ if(document.visibilityState==='visible' && S.playing) holdAwake(); });
+
+/* ---------- YouTube ---------- */
+function loadYT(){
+  if(window.YT && YT.Player) return makePlayer();
+  window.onYouTubeIframeAPIReady=makePlayer;
+  const s=document.createElement('script'); s.src='https://www.youtube.com/iframe_api'; s.onerror=ytFail; document.head.append(s);
+  setTimeout(()=>{ if(!S.ytReady && !S.yt) ytFail(); },8000);
+}
+function makePlayer(){
+  if(S.yt) return;
+  S.yt=new YT.Player('yt',{width:'100%',height:'100%',videoId:S.song.yt,
+    playerVars:{playsinline:1,rel:0,modestbranding:1,controls:1,fs:0,disablekb:1,iv_load_policy:3},
+    events:{
+      onReady:()=>{ S.ytReady=true; S.yt.setPlaybackRate(S.rate); S.yt.cueVideoById({videoId:S.song.yt,startSeconds:S.t}); updateUI(); },
+      onStateChange:e=>{ S.ytState=e.data; if(e.data===1){ S.manual=false; $('#follow').classList.remove('show'); lastY=-1; } },
+      onError:e=>{ toast('YouTube error '+e.data+' — switched to timer mode.',6000); S.mode='timer'; updateUI(); }
+    }});
+}
+function ytFail(){ if(S.ytTried) return; S.ytTried=true; if(!S.ytReady){ S.mode='timer'; toast('Could not load YouTube — using timer mode. (Needs internet.)',6000); updateUI(); } }
+function loadVideo(){
+  if(S.ytReady){ S.yt.cueVideoById({videoId:S.song.yt,startSeconds:S.t}); S.ytLast=-1; S.ytState=-1; }
+}
+
+/* ---------- songs sheet ---------- */
+function buildSongs(){
+  const box=$('#songList'); box.innerHTML='<h2>Songs</h2>';
+  SONGS.forEach((s,i)=>{
+    const b=document.createElement('button'); b.className='song'; b.dataset.i=i;
+    b.innerHTML='<b>'+s.title+'</b><span>'+(s.artist?s.artist+' · ':'')+s.strips.length+' lines · '+fmt(s.end)+'</span>';
+    b.onclick=()=>{ $('#songs').classList.remove('show'); loadSong(i); };
+    box.append(b);
+  });
+}
+function markSongs(){ document.querySelectorAll('.song').forEach(b=>b.classList.toggle('cur',+b.dataset.i===S.idx)); }
+
+/* ---------- events ---------- */
+$('#play').onclick=toggle;
+$('#bRestart').onclick=()=>{ if(S.playing||S.counting) pause(); seekTo(Math.max(0,S.song.strips[0].t+getOff()-3)); };
+$('#bSongs').onclick=()=>$('#songs').classList.add('show');
+$('#bSet').onclick=()=>$('#settings').classList.add('show');
+$('#bClose').onclick=()=>$('#settings').classList.remove('show');
+document.querySelectorAll('.sheet').forEach(s=>s.addEventListener('click',e=>{ if(e.target===s) s.classList.remove('show'); }));
+$('#bVid').onclick=()=>{ if(S.mode!=='video'){ S.mode='video'; store.set('mode','video'); if(!S.yt) loadYT(); } else { S.vidMin=!S.vidMin; store.set('vidmin',S.vidMin);} updateUI(); };
+$('#mVideo').onclick=()=>{ S.mode='video'; store.set('mode','video'); if(!S.yt) loadYT(); updateUI(); };
+$('#mTimer').onclick=()=>{ if(S.playing) pause(); S.mode='timer'; store.set('mode','timer'); updateUI(); };
+document.querySelectorAll('[data-sp]').forEach(b=>b.onclick=()=>{ S.rate=+b.dataset.sp; store.set('rate',S.rate); if(S.ytReady) S.yt.setPlaybackRate(S.rate); S.clkBase=S.t; S.clkWall=performance.now(); updateUI(); });
+document.querySelectorAll('[data-read]').forEach(b=>b.onclick=()=>{ S.readPct=+b.dataset.read; store.set('read',S.readPct); layout(); lastY=-1; render(true); updateUI(); });
+document.querySelectorAll('[data-cd]').forEach(b=>b.onclick=()=>{ S.cd=+b.dataset.cd; store.set('cd',S.cd); updateUI(); });
+$('#curOn').onclick=()=>{ S.cursor=true; store.set('cursor',true); render(true); updateUI(); };
+$('#curOff').onclick=()=>{ S.cursor=false; store.set('cursor',false); render(true); updateUI(); };
+document.querySelectorAll('[data-off]').forEach(b=>b.onclick=()=>{
+  const o=Math.round((getOff()+ +b.dataset.off)*10)/10; store.set(offKey(),o); $('#offv').textContent=o.toFixed(1)+'s'; layout(); lastY=-1; render(true);
+});
+const seekEl=$('#seek'); let seeking=false;
+seekEl.addEventListener('input',()=>{ seeking=true; S.t=+seekEl.value; S.manual=false; lastY=-1; render(true); });
+seekEl.addEventListener('change',()=>{ seeking=false; seekTo(+seekEl.value); });
+
+// user dragging the page -> stop auto-follow until "Follow song"
+let programmatic=false;
+['touchstart','wheel','mousedown'].forEach(ev=>view.addEventListener(ev,()=>{ S.manual=true; if(S.playing) $('#follow').classList.add('show'); },{passive:true}));
+$('#follow').onclick=()=>{ S.manual=false; lastY=-1; $('#follow').classList.remove('show'); render(true); };
+
+// double-tap a strip to jump to it
+let lastTap=0, lastEl=null;
+stage.addEventListener('click',e=>{
+  const d=e.target.closest('.strip'); if(!d) return;
+  const n=performance.now();
+  if(lastEl===d && n-lastTap<380){ seekTo(S.tAnch[+d.dataset.k]); lastTap=0; } else { lastTap=n; lastEl=d; }
+});
+document.addEventListener('keydown',e=>{ if(e.code==='Space'){ e.preventDefault(); toggle(); } });
+window.addEventListener('resize',()=>{ layout(); lastY=-1; render(true); });
+window.addEventListener('orientationchange',()=>setTimeout(()=>{ layout(); lastY=-1; render(true); },300));
+// images finish loading -> heights are fixed by aspect-ratio, but re-measure once everything is in
+window.addEventListener('load',()=>{ layout(); lastY=-1; render(true); });
+
+/* ---------- boot ---------- */
+buildSongs();
+const savedId=store.get('song',null);
+let start=SONGS.findIndex(s=>s.id===savedId); if(start<0) start=0;
+if(S.mode==='video') loadYT();
+loadSong(start);
+requestAnimationFrame(tick);
+window.__drum=S; // handy for debugging
+})();
+</script>
+</body>
+</html>
