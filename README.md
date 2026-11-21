@@ -14,7 +14,7 @@ Each song = list of strips + the video timestamp where each strip starts (`songs
 Scroll position is a smooth curve through those timestamps, driven by the embedded YouTube
 player's clock, so pause / seek / slow-down all keep the notes in sync.
 Settings (gear): Video vs Timer mode, speed, per-song Sync nudge, reading-line height, cursor.
-Double-tap a strip to jump to it. Drag the page = pause follow until "Follow song".
+Tap a line to start playing from it. Drag the page = pause follow until "Follow song".
 
 ## Adding / fixing songs
 Edit `SONGS` / `TIMES` in `build.py`, run `python build.py`.

@@ -30,7 +30,7 @@ header h1 small{display:block;font-weight:400;color:var(--muted);font-size:12px}
 #stage{position:relative;margin:0 auto;max-width:1500px}
 .pad{height:calc(var(--viewH,600px)*0.3)}
 .padb{height:calc(var(--viewH,600px)*0.8)}
-.strip{position:relative;margin:0 0 14px;background:var(--paper);border-radius:6px;overflow:hidden;opacity:1;transition:opacity .25s}
+.strip{cursor:pointer;position:relative;margin:0 0 14px;background:var(--paper);border-radius:6px;overflow:hidden;opacity:1;transition:opacity .25s}
 .strip.past{opacity:.4}
 .strip.cur{box-shadow:0 0 0 3px var(--accent)}
 .strip img{display:block;width:100%;height:auto}
@@ -121,7 +121,7 @@ footer{background:var(--panel);padding:8px max(14px,env(safe-area-inset-left)) m
   <div class="row"><label>Timer countdown</label>
     <button data-cd="0">None</button><button data-cd="3">3 s</button><button data-cd="5">5 s</button></div>
   <h2>Tips</h2>
-  <p class="hint">Double-tap a strip to jump there. Dragging the page pauses the auto-follow until you tap “Follow song”. Space bar = play/pause on a Bluetooth keyboard.</p>
+  <p class="hint">Tap any line to start playing from it. Dragging the page pauses the auto-follow until you tap “Follow song”. Space bar = play/pause on a Bluetooth keyboard.</p>
   <button id="bClose" style="width:100%">Done</button>
 </div></div>
 
@@ -382,12 +382,13 @@ let programmatic=false;
 ['touchstart','wheel','mousedown'].forEach(ev=>view.addEventListener(ev,()=>{ S.manual=true; if(S.playing) $('#follow').classList.add('show'); },{passive:true}));
 $('#follow').onclick=()=>{ S.manual=false; lastY=-1; $('#follow').classList.remove('show'); render(true); };
 
-// double-tap a strip to jump to it
-let lastTap=0, lastEl=null;
+// tap a line -> start playing from that line (a drag/scroll never counts as a tap)
 stage.addEventListener('click',e=>{
   const d=e.target.closest('.strip'); if(!d) return;
-  const n=performance.now();
-  if(lastEl===d && n-lastTap<380){ seekTo(S.tAnch[+d.dataset.k]); lastTap=0; } else { lastTap=n; lastEl=d; }
+  const t=S.tAnch[+d.dataset.k];
+  if(S.counting) pause();
+  seekTo(t);
+  if(!S.playing) play();
 });
 document.addEventListener('keydown',e=>{ if(e.code==='Space'){ e.preventDefault(); toggle(); } });
 window.addEventListener('resize',()=>{ layout(); lastY=-1; render(true); });
