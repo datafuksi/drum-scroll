@@ -34,6 +34,7 @@ SONGS = [
     dict(id="shut-up-and-dance", title="Shut Up and Dance", artist="WALK THE MOON", pdf="shut-up-and-dance-drum-notation.pdf", yt="BQBV8ozdQTM", kind="text"),
     dict(id="stay-with-me", title="Stay With Me", artist="Miki Matsubara", pdf="stay-with-me-drum-notation.pdf", yt="W7GBySYeNGQ", kind="text"),
     dict(id="thinking-out-loud", title="Thinking Out Loud", artist="Ed Sheeran", pdf="thinking-out-loud-drum-notation.pdf", yt="BoCrG1pvO9M", kind="text"),
+    dict(id="viva-la-vida", title="Viva La Vida", artist="Coldplay", pdf="viva-la-vida-drum-notation.pdf", yt="cZod6H42XIk", kind="boxes"),
     dict(id="yellow", title="Yellow", artist="Coldplay", pdf="yellow-drum-notation.pdf", yt="Ssz69tFTS7Y", kind="boxes"),
 ]
 
@@ -43,6 +44,7 @@ TIMES = {
     "beautiful-things": "0:31.5 0:34.8 1:09.3 1:22.5 1:26.6 1:34.9 1:42.9 1:46.9 1:54.9 2:03.0 2:07.1 2:14.0 2:21.7 2:29.9 2:37.9",
     "cant-help-falling-in-love": "0:04.4 0:14.8 0:29.0 0:44.3 0:57.7 1:11.8 1:26.0 1:29.9 1:43.5 1:57.8 2:11.8 2:15.1 2:30.8 2:43.2",
     "die-with-a-smile": "0:27.3 0:46.0 1:04.0 1:17.7 1:26.8 1:35.9 1:45.0 1:54.2 2:03.2 2:21.5 2:35.2 2:53.4 3:02.5 3:11.7 3:35.0 3:44.5",
+    "viva-la-vida": "0:10 0:17 0:29 0:38 0:47 0:55 1:04 1:13 1:20 1:27 1:35 1:44 1:51 2:00 2:09 2:17 2:24 2:31 2:38 2:40 2:52 3:02 3:11 3:19 3:29",
     "yellow": "0:08.4 0:11.7 0:22.8 0:33.6 0:44.9 0:55.6 1:06.7 1:19.2 1:29.0 1:40.8 1:51.4 2:02.1 2:13.2 2:24.3 2:35.3 2:46.4 2:52.0 3:03.0 3:13.9 3:25.3 3:36.2 3:47.2 3:58.6",
 }
 
