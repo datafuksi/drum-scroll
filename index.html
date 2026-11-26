@@ -2,6 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
+<meta http-equiv="Cache-Control" content="no-cache">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -43,14 +44,15 @@ header h1 small{display:block;font-weight:400;color:var(--muted);font-size:12px}
 #follow.show{display:block}
 #count{position:absolute;inset:0;z-index:7;display:none;align-items:center;justify-content:center;font-size:30vmin;font-weight:800;color:var(--accent);background:#000a;pointer-events:none}
 #count.show{display:flex}
-#metro{display:flex;gap:7px;align-items:center;padding:0 6px}
-#metro .md{width:14px;height:14px;border-radius:50%;background:var(--panel2);transition:transform .06s}
-#metro .md.on{background:var(--accent);transform:scale(1.25)}
-#metro .md.one.on{background:#fff;transform:scale(1.5)}
-#metro .bpm{color:var(--muted);font-size:12px;font-variant-numeric:tabular-nums;margin-left:4px}
-.flash{position:absolute;top:0;bottom:0;width:14px;z-index:4;pointer-events:none;opacity:0;background:var(--accent)}
+#metro{display:flex;gap:9px;align-items:center;padding:6px 10px;background:#0e0f12;border-radius:20px}
+#metro .md{width:20px;height:20px;border-radius:50%;background:transparent;border:2px solid #6b7180;transition:transform .06s}
+#metro .md.one{border-color:#c9ccd4}
+#metro .md.on{background:var(--accent);border-color:var(--accent);transform:scale(1.3)}
+#metro .md.one.on{background:#fff;border-color:#fff;transform:scale(1.5)}
+#metro .bpm{color:var(--text);font-size:13px;font-weight:600;font-variant-numeric:tabular-nums;margin-left:4px}
+.flash{position:absolute;top:0;bottom:0;width:22px;z-index:4;pointer-events:none;opacity:0;background:var(--accent)}
 .flash.l{left:0}.flash.r{right:0}
-.flash.one{background:#fff;width:22px}
+.flash.one{background:#fff;width:34px}
 #bTap{display:none;height:48px;font-weight:700}
 #bTap.show{display:block}
 #toast{position:absolute;left:50%;bottom:16px;transform:translateX(-50%);z-index:8;background:#000d;padding:10px 16px;border-radius:12px;max-width:80%;text-align:center;display:none;font-size:14px}
@@ -144,7 +146,7 @@ footer{background:var(--panel);padding:8px max(14px,env(safe-area-inset-left)) m
   <button id="bClose" style="width:100%">Done</button>
 </div></div>
 
-<script src="songs.js"></script>
+<script src="songs.js?v=6"></script>
 <script>
 (() => {
 'use strict';
@@ -335,7 +337,7 @@ function metroBuild(){
   const box=$('#metro'), c=metroCfg(); box.innerHTML=''; metroBuilt=S.song&&S.song.id; lastBeat=null;
   if(!c || S.metroMode==='off') return;
   for(let i=0;i<c.bpb;i++){ const d=document.createElement('div'); d.className='md'+(i===0?' one':''); box.append(d); }
-  const l=document.createElement('span'); l.className='bpm'; l.textContent=c.bpm.toFixed(1); box.append(l);
+  const l=document.createElement('span'); l.className='bpm'; l.textContent=Math.round(c.bpm)+' bpm'; box.append(l);
   $('#bpmv').textContent=c.bpm.toFixed(1)+' bpm';
 }
 function metroRender(t){
