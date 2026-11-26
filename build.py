@@ -34,6 +34,8 @@ SONGS = [
     dict(id="shut-up-and-dance", title="Shut Up and Dance", artist="WALK THE MOON", pdf="shut-up-and-dance-drum-notation.pdf", yt="BQBV8ozdQTM", kind="text"),
     dict(id="stay-with-me", title="Stay With Me", artist="Miki Matsubara", pdf="stay-with-me-drum-notation.pdf", yt="W7GBySYeNGQ", kind="text"),
     dict(id="thinking-out-loud", title="Thinking Out Loud", artist="Ed Sheeran", pdf="thinking-out-loud-drum-notation.pdf", yt="BoCrG1pvO9M", kind="text"),
+    dict(id="put-your-head-on-my-shoulder", title="Put Your Head On My Shoulder", artist="Paul Anka", pdf="put-your-head-on-my-shoulder-drum-notation.pdf", yt="tJLDzwxN2wY", kind="boxes", boxx=237),
+    dict(id="demons", title="Demons", artist="Imagine Dragons", pdf="Demons_drum_notation.pdf", yt="8OEq06Py1Wc", kind="demons"),
     dict(id="gimme-gimme-gimme", title="Gimme! Gimme! Gimme!", artist="ABBA", pdf="gimme-gimme-gimme-drum-notation.pdf", yt="ntD7DVaKPxI", kind="boxes"),
     dict(id="viva-la-vida", title="Viva La Vida", artist="Coldplay", pdf="viva-la-vida-drum-notation.pdf", yt="cZod6H42XIk", kind="boxes"),
     dict(id="yellow", title="Yellow", artist="Coldplay", pdf="yellow-drum-notation.pdf", yt="Ssz69tFTS7Y", kind="boxes"),
@@ -45,6 +47,7 @@ TIMES = {
     "beautiful-things": "0:31.5 0:34.8 1:09.3 1:22.5 1:26.6 1:34.9 1:42.9 1:46.9 1:54.9 2:03.0 2:07.1 2:14.0 2:21.7 2:29.9 2:37.9",
     "cant-help-falling-in-love": "0:04.4 0:14.8 0:29.0 0:44.3 0:57.7 1:11.8 1:26.0 1:29.9 1:43.5 1:57.8 2:11.8 2:15.1 2:30.8 2:43.2",
     "die-with-a-smile": "0:27.3 0:46.0 1:04.0 1:17.7 1:26.8 1:35.9 1:45.0 1:54.2 2:03.2 2:21.5 2:35.2 2:53.4 3:02.5 3:11.7 3:35.0 3:44.5",
+    "put-your-head-on-my-shoulder": "0:05 0:12 0:19 0:32 0:45 0:58 1:11 1:24 1:40 1:54 2:07 2:20 2:36",
     "gimme-gimme-gimme": "0:11 0:32 0:40 0:48 0:53 1:01 1:11 1:19 1:23 1:31 1:39 1:47 1:55 2:01 2:09 2:19 2:27 2:31 2:39 2:47 2:55 3:02 3:06 3:14 3:46 4:30 4:38 4:46",
     "viva-la-vida": "0:10 0:17 0:29 0:38 0:47 0:55 1:04 1:13 1:20 1:27 1:35 1:44 1:51 2:00 2:09 2:17 2:24 2:31 2:38 2:40 2:52 3:02 3:11 3:19 3:29",
     "yellow": "0:08.4 0:11.7 0:22.8 0:33.6 0:44.9 0:55.6 1:06.7 1:19.2 1:29.0 1:40.8 1:51.4 2:02.1 2:13.2 2:24.3 2:35.3 2:46.4 2:52.0 3:03.0 3:13.9 3:25.3 3:36.2 3:47.2 3:58.6",
@@ -73,10 +76,10 @@ def page_image(d, i):
     return Image.open(io.BytesIO(d.extract_image(d[i].get_images()[0][0])["image"])).convert("RGB")
 
 
-def find_boxes(im):
-    """Strip borders: a long vertical grey line at x~80."""
+def find_boxes(im, x=80):
+    """Strip borders: a long vertical grey line at x (80 for most PDFs)."""
     a = np.asarray(im.convert("L")).astype(int)
-    col = a[:, 78:83].min(1) < 235
+    col = a[:, x - 2:x + 3].min(1) < 235
     out, s = [], None
     for y, v in enumerate(list(col) + [False]):
         if v and s is None:
@@ -99,14 +102,14 @@ def strips_text(d):
     return imgs, times
 
 
-def strips_boxes(d, tstr):
+def strips_boxes(d, tstr, x=80):
     imgs = []
     for i in range(len(d)):
         im = page_image(d, i)
         a = np.asarray(im.convert("L")).astype(int)
-        for (y0, y1) in find_boxes(im):
+        for (y0, y1) in find_boxes(im, x):
             right = np.where(a[y0 + 2] < 250)[0].max() + 1
-            imgs.append(im.crop((78, y0, right, y1)))
+            imgs.append(im.crop((x - 2, y0, right, y1)))
     times = [ts(x) for x in tstr.split()]
     assert len(imgs) == len(times), (len(imgs), len(times))
     return imgs, times
@@ -163,6 +166,55 @@ def strips_bars(d):
     return rows, times, segs, starts[-1]
 
 
+# Demons: 3 video screens of systems, 90 bpm 4/4. The video plays bars 1-24, repeats to bar 1
+# (at 1:08), then plays 1-40. Bar 1 = 0:04. Checks: bar 20 = 0:55, 2nd bar 35 = 2:39.
+DEM_BPM = 90
+DEM_T0 = 4.0
+DEM_ROWS = [[1, 8, 12, 16], [20, 23, 27, 31], [35, 38]]   # first bar of each system, per screen
+DEM_END = 41
+
+
+def split_systems(im):
+    g = np.asarray(im.convert("L")).astype(int)
+    dark = (g[:, 100:im.width - 60] < 120).mean(1) > .6
+    ys = list(np.where(dark)[0])
+    staffs, cur = [], [ys[0]]
+    for y in ys[1:]:
+        if y - cur[-1] <= 14: cur.append(y)
+        else: staffs.append(cur); cur = [y]
+    staffs.append(cur)
+    staffs = [(min(s), max(s)) for s in staffs if max(s) - min(s) > 30]
+    cuts = [0] + [staffs[i][1] + int((staffs[i + 1][0] - staffs[i][1]) * .42) for i in range(len(staffs) - 1)] + [min(im.height, staffs[-1][1] + 90)]
+    return [im.crop((0, cuts[i], im.width, cuts[i + 1])) for i in range(len(staffs))]
+
+
+def strips_demons(d):
+    screens = []
+    for p in d:
+        for k in sorted(p.get_image_info(xrefs=True), key=lambda k: k["bbox"][1]):
+            screens.append(Image.open(io.BytesIO(d.extract_image(k["xref"])["image"])).convert("RGB"))
+    rows = {}
+    for si, sc in enumerate(screens):
+        sy = split_systems(sc)
+        assert len(sy) == len(DEM_ROWS[si]), (si, len(sy))
+        for b, im in zip(DEM_ROWS[si], sy): rows[b] = im
+    bar = 4 * 60 / DEM_BPM
+    starts = sorted(rows)
+    nxt = {b: (starts[i + 1] if i + 1 < len(starts) else DEM_END) for i, b in enumerate(starts)}
+    imgs, times, segs = [], [], []
+    # pass 1: bars 1-24, repeat sign sits ~45% across the bar-23 system
+    for b in [1, 8, 12, 16, 20, 23]:
+        t = DEM_T0 + (b - 1) * bar
+        e = DEM_T0 + ((25 if b == 23 else nxt[b]) - 1) * bar
+        imgs.append(rows[b]); times.append(t); segs.append([[0.03, 0.45 if b == 23 else 0.99, round(t, 3), round(e, 3)]])
+    # pass 2: bars 1-40
+    for b in starts:
+        t = DEM_T0 + (24 + b - 1) * bar
+        e = DEM_T0 + (24 + nxt[b] - 1) * bar
+        imgs.append(rows[b]); times.append(t); segs.append([[0.03, 0.99, round(t, 3), round(e, 3)]])
+    return imgs, times, segs, DEM_T0 + (24 + DEM_END - 1) * bar
+
+
 def main():
     if os.path.isdir(OUT):
         shutil.rmtree(OUT)
@@ -174,7 +226,9 @@ def main():
         if s["kind"] == "text":
             imgs, times = strips_text(d)
         elif s["kind"] == "boxes":
-            imgs, times = strips_boxes(d, TIMES[s["id"]])
+            imgs, times = strips_boxes(d, TIMES[s["id"]], s.get("boxx", 80))
+        elif s["kind"] == "demons":
+            imgs, times, segs, end = strips_demons(d)
         else:
             imgs, times, segs, end = strips_bars(d)
         if end is None:
