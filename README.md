@@ -16,6 +16,11 @@ player's clock, so pause / seek / slow-down all keep the notes in sync.
 Settings (gear): Video vs Timer mode, speed, per-song Sync nudge, reading-line height, cursor.
 Tap a line to start playing from it. Drag the page = pause follow until "Follow song".
 
+## Visual metronome
+Beat dots in the header (white = the "1") plus an orange edge flash on every beat. Tempo/downbeat
+per song is fitted from the strip timestamps (METRO in build.py). If it feels off, tap "Tap on 1"
+on a few bar starts while the song plays; tempo can be nudged in settings. Both are saved per song.
+
 ## Adding / fixing songs
 Edit `SONGS` / `TIMES` in `build.py`, run `python build.py`.
 Summer of '69 has no timestamps, only tempo (138 bpm) and bar numbers; use Sync to line up

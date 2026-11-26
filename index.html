@@ -43,6 +43,16 @@ header h1 small{display:block;font-weight:400;color:var(--muted);font-size:12px}
 #follow.show{display:block}
 #count{position:absolute;inset:0;z-index:7;display:none;align-items:center;justify-content:center;font-size:30vmin;font-weight:800;color:var(--accent);background:#000a;pointer-events:none}
 #count.show{display:flex}
+#metro{display:flex;gap:7px;align-items:center;padding:0 6px}
+#metro .md{width:14px;height:14px;border-radius:50%;background:var(--panel2);transition:transform .06s}
+#metro .md.on{background:var(--accent);transform:scale(1.25)}
+#metro .md.one.on{background:#fff;transform:scale(1.5)}
+#metro .bpm{color:var(--muted);font-size:12px;font-variant-numeric:tabular-nums;margin-left:4px}
+.flash{position:absolute;top:0;bottom:0;width:14px;z-index:4;pointer-events:none;opacity:0;background:var(--accent)}
+.flash.l{left:0}.flash.r{right:0}
+.flash.one{background:#fff;width:22px}
+#bTap{display:none;height:48px;font-weight:700}
+#bTap.show{display:block}
 #toast{position:absolute;left:50%;bottom:16px;transform:translateX(-50%);z-index:8;background:#000d;padding:10px 16px;border-radius:12px;max-width:80%;text-align:center;display:none;font-size:14px}
 
 #ytbox{position:absolute;right:max(10px,env(safe-area-inset-right));bottom:10px;z-index:5;width:220px;border-radius:10px;overflow:hidden;background:#000;box-shadow:0 6px 24px #000a}
@@ -76,6 +86,7 @@ footer{background:var(--panel);padding:8px max(14px,env(safe-area-inset-left)) m
 <header>
   <button id="bSongs" aria-label="Songs">☰ Songs</button>
   <h1 id="title">Drum Scroll</h1>
+  <div id="metro"></div>
   <span id="clock">0:00 / 0:00</span>
   <button id="bSet" aria-label="Settings">⚙</button>
 </header>
@@ -87,6 +98,7 @@ footer{background:var(--panel);padding:8px max(14px,env(safe-area-inset-left)) m
     <div class="padb"></div>
   </div>
   <div id="readline"></div>
+  <div class="flash l" id="flL"></div><div class="flash r" id="flR"></div>
   <button id="follow">⤓ Follow song</button>
   <div id="count"></div>
   <div id="toast"></div>
@@ -97,6 +109,7 @@ footer{background:var(--panel);padding:8px max(14px,env(safe-area-inset-left)) m
   <button class="sq" id="bRestart" aria-label="Restart">⟲</button>
   <button id="play" aria-label="Play">▶</button>
   <input id="seek" type="range" min="0" max="100" step="0.1" value="0">
+  <button id="bTap" aria-label="Tap on beat one">Tap on 1</button>
   <button class="sq" id="bVid" aria-label="Toggle video">🎬</button>
 </footer>
 
@@ -113,6 +126,12 @@ footer{background:var(--panel);padding:8px max(14px,env(safe-area-inset-left)) m
   <div class="row"><label>Notation too early/late? Shift it:</label>
     <button data-off="-1">−1s</button><button data-off="-0.1">−0.1</button><span id="offv">0.0s</span><button data-off="0.1">+0.1</button><button data-off="1">+1s</button></div>
   <p class="hint" id="songNote"></p>
+  <h2>Metronome</h2>
+  <div class="row"><label>Visual beat</label>
+    <button data-mt="off">Off</button><button data-mt="dots">Dots</button><button data-mt="flash">Dots + edge flash</button></div>
+  <div class="row"><label>Tempo (this song)</label>
+    <button data-bpm="-1">−1</button><button data-bpm="-0.1">−0.1</button><span id="bpmv" style="min-width:80px;text-align:center"></span><button data-bpm="0.1">+0.1</button><button data-bpm="1">+1</button></div>
+  <p class="hint">While the song plays, tap “Tap on 1” on a few bar-starts (the “1” of the count) to lock the beat to the music. Saved per song. <button id="mReset" style="padding:4px 10px;font-size:13px">Reset beat sync</button></p>
   <h2>Display</h2>
   <div class="row"><label>Reading line (where the current strip sits)</label>
     <button data-read="20">High</button><button data-read="30">Mid</button><button data-read="42">Low</button></div>
@@ -137,7 +156,7 @@ const store = {
 const S = {
   song:null, idx:0, mode: store.get('mode','video'), rate: store.get('rate',1),
   readPct: store.get('read',30), cursor: store.get('cursor',true), cd: store.get('cd',3),
-  vidMin: store.get('vidmin',false),
+  vidMin: store.get('vidmin',false), metroMode: store.get('metro','flash'),
   playing:false, t:0, manual:false, tAnch:[], yAnch:[], els:[], curI:-1,
   // timer clock
   clkBase:0, clkWall:0, counting:false,
@@ -244,6 +263,7 @@ function render(force){
   }
   $('#clock').textContent=fmt(t)+' / '+fmt(S.tAnch.length?S.tAnch[S.tAnch.length-1]:0);
   if(!seeking) $('#seek').value=t;
+  metroRender(t);
 }
 
 /* ---------- time source ---------- */
@@ -294,7 +314,7 @@ function play(){
 }
 function pause(){
   if(videoMode()) { try{S.yt.pauseVideo();}catch(e){} }
-  S.playing=false; S.counting=false; $('#count').classList.remove('show'); releaseAwake(); updateUI();
+  S.playing=false; S.counting=false; $('#count').classList.remove('show'); releaseAwake(); updateUI(); render(true);
 }
 function toggle(){ (S.playing||S.counting)?pause():play(); }
 function seekTo(t){
@@ -303,12 +323,51 @@ function seekTo(t){
   S.clkBase=t; S.clkWall=performance.now();
   S.manual=false; $('#follow').classList.remove('show'); lastY=-1; render(true);
 }
+/* ---------- visual metronome ---------- */
+let metroBuilt=null, lastBeat=null, lastTapAt=-1e9;
+const mphKey=()=>'mph.'+S.song.id, bpmKey=()=>'bpm.'+S.song.id;
+function metroCfg(){
+  const m=S.song&&S.song.metro; if(!m) return null;
+  const bpm=m.bpm+store.get(bpmKey(),0);
+  return {bpm, bpb:m.bpb, beat:60/bpm, origin:m.t0+getOff()+store.get(mphKey(),0)};
+}
+function metroBuild(){
+  const box=$('#metro'), c=metroCfg(); box.innerHTML=''; metroBuilt=S.song&&S.song.id; lastBeat=null;
+  if(!c || S.metroMode==='off') return;
+  for(let i=0;i<c.bpb;i++){ const d=document.createElement('div'); d.className='md'+(i===0?' one':''); box.append(d); }
+  const l=document.createElement('span'); l.className='bpm'; l.textContent=c.bpm.toFixed(1); box.append(l);
+  $('#bpmv').textContent=c.bpm.toFixed(1)+' bpm';
+}
+function metroRender(t){
+  const c=metroCfg(), fl=[$('#flL'),$('#flR')];
+  if(metroBuilt!==(S.song&&S.song.id)) metroBuild();
+  if(!c || S.metroMode==='off'){ fl.forEach(f=>f.style.opacity=0); return; }
+  const x=(t-c.origin)/c.beat, idx=Math.floor(x), frac=x-idx, inBar=((idx%c.bpb)+c.bpb)%c.bpb;
+  const live=S.playing&&!S.counting;
+  const dots=$('#metro').querySelectorAll('.md');
+  if(inBar!==lastBeat){ dots.forEach((d,i)=>d.classList.toggle('on',live&&i===inBar)); lastBeat=inBar; }
+  if(!live) dots.forEach(d=>d.classList.remove('on'));
+  const op = (live && S.metroMode==='flash') ? Math.max(0,1-frac*3.2)*(inBar===0?1:.6) : 0;
+  fl.forEach(f=>{ f.style.opacity=op; f.classList.toggle('one',inBar===0); });
+}
+function tapOne(){
+  const c=metroCfg(); if(!c) return;
+  const t=now(), barLen=c.beat*c.bpb, x=(t-c.origin)/barLen;
+  const err=t-(c.origin+Math.round(x)*barLen);          // distance to the nearest "1"
+  const recent=(performance.now()-lastTapAt)<8000; lastTapAt=performance.now();
+  const adj=recent? err*0.5 : err;
+  store.set(mphKey(), Math.round((store.get(mphKey(),0)+adj)*1000)/1000);
+  lastBeat=null; toast((recent?'Beat refined':'Beat locked')+' ('+(adj>=0?'+':'')+Math.round(adj*1000)+' ms)',1500);
+}
+
 function updateUI(){
   $('#play').textContent=(S.playing||S.counting)?'❚❚':'▶';
   document.querySelectorAll('[data-sp]').forEach(b=>b.classList.toggle('on',+b.dataset.sp===S.rate));
   document.querySelectorAll('[data-read]').forEach(b=>b.classList.toggle('on',+b.dataset.read===S.readPct));
   document.querySelectorAll('[data-cd]').forEach(b=>b.classList.toggle('on',+b.dataset.cd===S.cd));
   $('#mVideo').classList.toggle('on',S.mode==='video'); $('#mTimer').classList.toggle('on',S.mode==='timer');
+  document.querySelectorAll('[data-mt]').forEach(b=>b.classList.toggle('on',b.dataset.mt===S.metroMode));
+  $('#bTap').classList.toggle('show',S.metroMode!=='off' && !!(S.song&&S.song.metro));
   $('#curOn').classList.toggle('on',S.cursor); $('#curOff').classList.toggle('on',!S.cursor);
   $('#readline').classList.toggle('show',true);
   $('#ytbox').classList.toggle('off',S.mode!=='video');
@@ -395,6 +454,11 @@ window.addEventListener('resize',()=>{ layout(); lastY=-1; render(true); });
 window.addEventListener('orientationchange',()=>setTimeout(()=>{ layout(); lastY=-1; render(true); },300));
 // images finish loading -> heights are fixed by aspect-ratio, but re-measure once everything is in
 window.addEventListener('load',()=>{ layout(); lastY=-1; render(true); });
+
+document.querySelectorAll('[data-mt]').forEach(b=>b.onclick=()=>{ S.metroMode=b.dataset.mt; store.set('metro',S.metroMode); metroBuilt=null; render(true); updateUI(); });
+document.querySelectorAll('[data-bpm]').forEach(b=>b.onclick=()=>{ store.set(bpmKey(), Math.round((store.get(bpmKey(),0)+ +b.dataset.bpm)*10)/10); metroBuilt=null; render(true); });
+$('#mReset').onclick=()=>{ store.set(mphKey(),0); store.set(bpmKey(),0); metroBuilt=null; render(true); toast('Beat sync reset',1500); };
+$('#bTap').addEventListener('pointerdown',e=>{ e.preventDefault(); tapOne(); });
 
 /* ---------- boot ---------- */
 buildSongs();

@@ -215,6 +215,28 @@ def strips_demons(d):
     return imgs, times, segs, DEM_T0 + (24 + DEM_END - 1) * bar
 
 
+# Visual metronome: (pulse bpm, pulses per bar). Printed tempo where the notation shows one,
+# otherwise counted from the strips (12/8 and 6/8 songs pulse in dotted quarters).
+# build() snaps each strip gap to whole bars and least-squares fits tempo + downbeat time.
+METRO = {
+    "beggin": (134, 4), "im-yours": (74, 4), "shut-up-and-dance": (128, 4), "stay-with-me": (108, 4),
+    "thinking-out-loud": (79, 4), "die-with-a-smile": (79, 4), "put-your-head-on-my-shoulder": (76, 4),
+    "gimme-gimme-gimme": (118, 4), "viva-la-vida": (138, 4), "yellow": (87.5, 4),
+    "a-thousand-years": (46.2, 4), "beautiful-things": (70, 2), "cant-help-falling-in-love": (68, 4),
+}
+
+
+def fit_metro(sid, times):
+    if sid == "summer-of-69": return dict(bpm=S69_BPM, bpb=S69_BEATS, t0=0.0)
+    if sid == "demons": return dict(bpm=DEM_BPM, bpb=4, t0=DEM_T0)
+    if sid not in METRO: return None
+    bpm, bpb = METRO[sid]
+    t = np.array(times); bar = bpb * 60 / bpm
+    n = np.round(np.diff(t) / bar); N = np.concatenate([[0], np.cumsum(n)])
+    (a0, bl), *_ = np.linalg.lstsq(np.vstack([np.ones_like(N), N]).T, t, rcond=None)
+    return dict(bpm=round(bpb * 60 / bl, 2), bpb=bpb, t0=round(float(a0), 3))
+
+
 def main():
     if os.path.isdir(OUT):
         shutil.rmtree(OUT)
@@ -244,6 +266,8 @@ def main():
                 st["segs"] = segs[i]
             strips.append(st)
         song = dict(id=s["id"], title=s["title"], artist=s["artist"], yt=s["yt"], end=round(end, 2), strips=strips)
+        m = fit_metro(s["id"], times)
+        if m: song["metro"] = m
         if s["kind"] == "bars":
             song["note"] = f"Tempo based ({S69_BPM} bpm). Press play, then nudge Sync until the drums-in bar (14) lines up."
         songs.append(song)
